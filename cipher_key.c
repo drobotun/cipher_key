@@ -106,7 +106,7 @@ F(const uint8_t *password, size_t size_pass, const uint8_t *salt,
 
 void
 PBKDF_2(const uint8_t *password, size_t size_pass, const uint8_t *salt, size_t size_salt,
-        uint64_t num_step, uint64_t key_length, uint8_t *key)
+        uint64_t num_iter, uint64_t key_length, uint8_t *key)
 {
     uint32_t num_block = key_length / BLOCK_SIZE;
     if ((key_length % BLOCK_SIZE) != 0)
@@ -117,7 +117,7 @@ PBKDF_2(const uint8_t *password, size_t size_pass, const uint8_t *salt, size_t s
     DK = malloc(num_block * BLOCK_SIZE);
     for (i = 0; i < num_block; i++)
     {
-        F(password, size_pass, salt, size_salt, num_step, i + 1, F_res);
+        F(password, size_pass, salt, size_salt, num_iter, i + 1, F_res);
         memcpy(DK + (i * BLOCK_SIZE), F_res, BLOCK_SIZE);
     }
     memcpy(key, DK, key_length);
