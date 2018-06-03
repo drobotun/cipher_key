@@ -46,33 +46,48 @@ GOSTHashAdd512(const uint8_t *a, const uint8_t *b, uint8_t *c)
 }
 
 static void
-GOSTHashLPS(uint8_t *state)
+GOSTHashP(uint8_t *state)
 {
-    uint64_t internal[8];
-    internal[0] = T[0][(state[0])] ^ T[1][(state[8])] ^ T[2][(state[16])] ^ T[3][(state[24])] ^
-            T[4][(state[32])] ^ T[5][(state[40])] ^ T[6][(state[48])] ^ T[7][(state[56])];
-    internal[1] = T[0][(state[1])] ^ T[1][(state[9])] ^ T[2][(state[17])] ^ T[3][(state[25])] ^
-            T[4][(state[33])] ^ T[5][(state[41])] ^ T[6][(state[49])] ^ T[7][(state[57])];
-    internal[2] = T[0][(state[2])] ^ T[1][(state[10])] ^ T[2][(state[18])] ^ T[3][(state[26])] ^
-            T[4][(state[34])] ^ T[5][(state[42])] ^ T[6][(state[50])] ^ T[7][(state[58])];
-    internal[3] = T[0][(state[3])] ^ T[1][(state[11])] ^ T[2][(state[19])] ^ T[3][(state[27])] ^
-            T[4][(state[35])] ^ T[5][(state[43])] ^ T[6][(state[51])] ^ T[7][(state[59])];
-    internal[4] = T[0][(state[4])] ^ T[1][(state[12])] ^ T[2][(state[20])] ^ T[3][(state[28])] ^
-            T[4][(state[36])] ^ T[5][(state[44])] ^ T[6][(state[52])] ^ T[7][(state[60])];
-    internal[5] = T[0][(state[5])] ^ T[1][(state[13])] ^ T[2][(state[21])] ^ T[3][(state[29])] ^
-            T[4][(state[37])] ^ T[5][(state[45])] ^ T[6][(state[53])] ^ T[7][(state[61])];
-    internal[6] = T[0][(state[6])] ^ T[1][(state[14])] ^ T[2][(state[22])] ^ T[3][(state[30])] ^
-            T[4][(state[38])] ^ T[5][(state[46])] ^ T[6][(state[54])] ^ T[7][(state[62])];
-    internal[7] = T[0][(state[7])] ^ T[1][(state[15])] ^ T[2][(state[23])] ^ T[3][(state[31])] ^
-            T[4][(state[39])] ^ T[5][(state[47])] ^ T[6][(state[55])] ^ T[7][(state[63])];
-    memcpy(state, internal, 64);
+    int i;
+    vect internal;
+    for (i = 63; i >= 0; i--)
+        internal[i] = state[Tau[i]];
+    memcpy(state, internal, BLOCK_SIZE);
 }
 
 static void
-GOSTHashKeyShedule(uint8_t *K, int i)
+GOSTHashS(uint8_t *state)
+{
+    int i;
+    vect internal;
+    for (i = 63; i >= 0; i--)
+        internal[i] = Pi[state[i]];
+    memcpy(state, internal, BLOCK_SIZE);
+}
+
+static void
+GOSTHashL(uint8_t *state)
+{
+    uint64_t* internal_in = (uint64_t*)state;
+    uint64_t internal_out[8];
+    memset(internal_out, 0x00, BLOCK_SIZE);
+    int i, j;
+    for (i = 7; i >= 0; i--)
+    {
+        for (j = 63; j >= 0; j--)
+            if ((internal_in[i] >> j) & 1)
+                internal_out[i] ^= A[63 - j];
+    }
+    memcpy(state, internal_out, 64);
+}
+
+static void
+GOSTHashGetKey(uint8_t *K, int i)
 {
     GOSTHashX(K, C[i], K);
-    GOSTHashLPS(K);
+    GOSTHashS(K);
+    GOSTHashP(K);
+    GOSTHashL(K);
 }
 
 static void
@@ -83,8 +98,10 @@ GOSTHashE(uint8_t *K, const uint8_t *m, uint8_t *state)
     GOSTHashX(m, K, state);
     for(i = 0; i < 12; i++)
     {
-        GOSTHashLPS(state);
-        GOSTHashKeyShedule(K, i);
+        GOSTHashS(state);
+        GOSTHashP(state);
+        GOSTHashL(state);
+        GOSTHashGetKey(K, i);
         GOSTHashX(state, K, state);
     }
 }
@@ -95,7 +112,9 @@ GOSTHashG( uint8_t *h, uint8_t *N, const uint8_t *m)
     vect K, internal;
     GOSTHashX(N, h, K);
 
-    GOSTHashLPS(K);
+    GOSTHashS(K);
+    GOSTHashP(K);
+    GOSTHashL(K);
 
     GOSTHashE(K, m, internal);
 
